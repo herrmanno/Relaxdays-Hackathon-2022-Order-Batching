@@ -1,10 +1,10 @@
-use serde::{Serialize};
+use serde::Serialize;
 
-use crate::model::*;
-use crate::ga::orders::*;
 use crate::ga::batches::*;
+use crate::ga::orders::*;
+use crate::model::*;
 
-#[derive(Serialize,Debug)]
+#[derive(Serialize, Debug)]
 pub struct Output {
     #[serde(rename = "Waves")]
     waves: Vec<Wave>,
@@ -13,24 +13,23 @@ pub struct Output {
 }
 
 impl Output {
-    pub fn new(
-        batched_articles: &BatchedArticles,
-        waived_batches: &WaivedBatches
-    ) -> Output {
+    pub fn new(batched_articles: &BatchedArticles, waived_batches: &WaivedBatches) -> Output {
         let waves = waived_batches
             .to_waives()
             .iter()
             .enumerate()
-            .map(|(idx,waive)| {
+            .map(|(idx, waive)| {
                 let wave_id = idx as ID;
-                let batch_ids = waive.batches()
-                    .iter()
-                    .map(|b| b.id as ID)
-                    .collect();
+                let batch_ids = waive.batches().iter().map(|b| b.id as ID).collect();
                 let order_ids = waive.order_ids_in_waive().into_iter().collect();
                 let wave_size = waive.num_articles();
 
-                Wave { wave_id, batch_ids, order_ids, wave_size }
+                Wave {
+                    wave_id,
+                    batch_ids,
+                    order_ids,
+                    wave_size,
+                }
             })
             .collect();
 
@@ -39,17 +38,25 @@ impl Output {
             .iter()
             .map(|batch| {
                 let batch_id = batch.id as ID;
-                let items = batch.ordered_articles()
+                let items = batch
+                    .ordered_articles()
                     .into_iter()
                     .map(|article| {
                         let order_id = article.order_id;
                         let article_id = article.id;
-                        Item { order_id, article_id }
+                        Item {
+                            order_id,
+                            article_id,
+                        }
                     })
                     .collect();
                 let batch_volume = batch.volume() as usize;
 
-                Batch { batch_id, items, batch_volume }
+                Batch {
+                    batch_id,
+                    items,
+                    batch_volume,
+                }
             })
             .collect();
 
@@ -57,7 +64,7 @@ impl Output {
     }
 }
 
-#[derive(Serialize,Debug)]
+#[derive(Serialize, Debug)]
 pub struct Wave {
     #[serde(rename = "WaveId")]
     wave_id: ID,
@@ -69,7 +76,7 @@ pub struct Wave {
     wave_size: usize,
 }
 
-#[derive(Serialize,Debug)]
+#[derive(Serialize, Debug)]
 pub struct Batch {
     #[serde(rename = "BatchId")]
     batch_id: ID,
@@ -79,7 +86,7 @@ pub struct Batch {
     batch_volume: usize,
 }
 
-#[derive(Serialize,Debug)]
+#[derive(Serialize, Debug)]
 pub struct Item {
     #[serde(rename = "OrderId")]
     order_id: ID,

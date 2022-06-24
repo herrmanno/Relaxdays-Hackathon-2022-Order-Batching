@@ -1,16 +1,16 @@
 //! Genetic search for partitioning batches into waives
 use std::collections::BTreeSet;
-use std::ops::{Div};
+use std::ops::Div;
 
+use crate::ga::orders::{Batch, BatchedArticles};
 use crate::model::*;
-use crate::ga::orders::{Batch,BatchedArticles};
 
-use genevo::{operator::{prelude::*}, prelude::*, population::ValueEncodedGenomeBuilder};
+use genevo::{operator::prelude::*, population::ValueEncodedGenomeBuilder, prelude::*};
 
 type Fitness = usize;
 
 /// A mapping from batches to waives
-/// 
+///
 /// Acts as genotype / individual
 #[derive(Clone, Debug)]
 pub struct WaivedBatches<'a> {
@@ -33,7 +33,7 @@ impl<'a> PartialOrd for WaivedBatches<'a> {
 impl<'a> WaivedBatches<'a> {
     fn from_waive_mapping(
         waive_mapping: WaiveMapping,
-        batched_articles: &'a BatchedArticles
+        batched_articles: &'a BatchedArticles,
     ) -> WaivedBatches<'a> {
         let mut waives: Vec<Waive<'a>> = (0..batched_articles.len())
             .into_iter()
@@ -42,20 +42,20 @@ impl<'a> WaivedBatches<'a> {
 
         let batches = batched_articles.to_batches();
 
-        batches
-            .iter()
-            .enumerate()
-            .for_each(|(idx, batch)| {
-                let waive_id = waive_mapping[idx];
-                waives[waive_id as usize].push(batch.to_owned())
-            });
+        batches.iter().enumerate().for_each(|(idx, batch)| {
+            let waive_id = waive_mapping[idx];
+            waives[waive_id as usize].push(batch.to_owned())
+        });
 
         waives = waives
             .into_iter()
             .filter(|waive| waive.num_batches() > 0)
             .collect();
 
-        WaivedBatches { waive_mapping, waives }
+        WaivedBatches {
+            waive_mapping,
+            waives,
+        }
     }
 
     pub fn to_waives(&self) -> &Vec<Waive<'a>> {
@@ -87,7 +87,8 @@ impl<'a> WaivedBatches<'a> {
     }
 
     pub fn get_split_orders(&self) -> BTreeSet<ID> {
-        let order_ids_per_batch = self.to_waives()
+        let order_ids_per_batch = self
+            .to_waives()
             .iter()
             .map(Waive::order_ids_in_waive)
             .collect::<Vec<_>>();
@@ -111,10 +112,7 @@ impl<'a> WaivedBatches<'a> {
     }
 
     pub fn rest_cost(&self) -> usize {
-        let num_waives = self.waive_mapping
-            .iter()
-            .collect::<BTreeSet<_>>()
-            .len();
+        let num_waives = self.waive_mapping.iter().collect::<BTreeSet<_>>().len();
 
         num_waives * COST_PER_WAIVE
     }
@@ -127,12 +125,14 @@ impl<'a> Genotype for WaivedBatches<'a> {
 /// A singe batch, containing (ordered) articles
 #[derive(Clone, Debug)]
 pub struct Waive<'a> {
-    batches: Vec<Batch<'a>>
+    batches: Vec<Batch<'a>>,
 }
 
 impl<'a> Waive<'a> {
     fn new() -> Waive<'a> {
-        Waive { batches: Vec::new() }
+        Waive {
+            batches: Vec::new(),
+        }
     }
 
     fn push(&mut self, batch: Batch<'a>) {
@@ -148,10 +148,7 @@ impl<'a> Waive<'a> {
     }
 
     pub fn num_articles(&self) -> usize {
-        self.batches
-            .iter()
-            .map(Batch::num_articles)
-            .sum::<usize>()
+        self.batches.iter().map(Batch::num_articles).sum::<usize>()
     }
 
     pub fn order_ids_in_waive(&self) -> BTreeSet<ID> {
@@ -160,21 +157,20 @@ impl<'a> Waive<'a> {
             .flat_map(|batch| batch.order_ids_in_batch().into_iter())
             .collect()
     }
-
 }
 
 /// id (index) of a single, specific waive
 type WaiveId = usize;
 
 /// A 'mapping' from batches (by index) to waives (by id / index)
-/// 
+///
 /// Acts as DNA for the genotype `WaivedBatches`
 type WaiveMapping = Vec<WaiveId>;
 
-#[derive(Debug,Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct FitnessCalc<'a> {
     model: &'a Model,
-    batched_articles: &'a BatchedArticles<'a>
+    batched_articles: &'a BatchedArticles<'a>,
 }
 
 impl<'a> FitnessCalc<'a> {
@@ -198,13 +194,13 @@ impl<'a> FitnessFunction<WaiveMapping, Fitness> for FitnessCalc<'a> {
         let waived_batches =
             WaivedBatches::from_waive_mapping(waive_mapping.to_owned(), self.batched_articles);
         let waives = waived_batches.to_waives();
-        
+
         let has_invalid_waive = waives
             .iter()
             .any(|wave| wave.num_articles() > MAX_ARTICLES_PER_WAIVE);
 
         if has_invalid_waive {
-            return 0
+            return 0;
         }
 
         let base_fitness = {
@@ -253,22 +249,24 @@ pub fn find_best_waives<'a>(
     model: &'a Model,
     batched_articles: &'a BatchedArticles,
     num_individuals: usize,
-    num_generations: usize
+    num_generations: usize,
 ) -> WaivedBatches<'a> {
-    
-    let fitness_calc = FitnessCalc { model, batched_articles };
+    let fitness_calc = FitnessCalc {
+        model,
+        batched_articles,
+    };
 
     let genome_config = GenomeConfig {
         length: batched_articles.to_batches().len(),
         min_value: 0,
-        max_value: batched_articles.to_batches().len() - 1
+        max_value: batched_articles.to_batches().len() - 1,
     };
 
     let initial_population: Population<_> = build_population()
         .with_genome_builder(ValueEncodedGenomeBuilder::new(
             genome_config.length,
             genome_config.min_value,
-            genome_config.max_value
+            genome_config.max_value,
         ))
         .of_size(num_individuals)
         .uniform_at_random();
@@ -276,28 +274,22 @@ pub fn find_best_waives<'a>(
     let mut batch_sim = simulate(
         genetic_algorithm()
             .with_evaluation(fitness_calc)
-            .with_selection(RouletteWheelSelector::new(
-                0.7,
-                2
-            ))
+            .with_selection(RouletteWheelSelector::new(0.7, 2))
             .with_crossover(UniformCrossBreeder::new())
             .with_mutation(RandomValueMutator::new(
                 0.05,
                 genome_config.min_value,
-                genome_config.max_value))
-            .with_reinsertion(ElitistReinserter::new(
-                fitness_calc,
-            true,
-        0.7))
-            .with_initial_population(initial_population)
-            .build()
-    )
-        .until(
-            Or::new(
-                GenerationLimit::new(num_generations as u64),
-                FitnessLimit::new(100)
+                genome_config.max_value,
             ))
-        .build();
+            .with_reinsertion(ElitistReinserter::new(fitness_calc, true, 0.7))
+            .with_initial_population(initial_population)
+            .build(),
+    )
+    .until(Or::new(
+        GenerationLimit::new(num_generations as u64),
+        FitnessLimit::new(100),
+    ))
+    .build();
 
     loop {
         match batch_sim.step() {
@@ -307,7 +299,8 @@ pub fn find_best_waives<'a>(
                         println!(
                             "Generation {} fitness {}",
                             step.result.best_solution.generation,
-                            step.result.best_solution.solution.fitness);
+                            step.result.best_solution.solution.fitness
+                        );
                     }
                 }
             }
@@ -316,17 +309,20 @@ pub fn find_best_waives<'a>(
                     println!(
                         "Generation {} fitness {}",
                         step.result.best_solution.generation,
-                        step.result.best_solution.solution.fitness);
+                        step.result.best_solution.solution.fitness
+                    );
                 }
                 if cfg!(feature = "info") {
-                    println!("Time: {} Duration {} Stop reason {}", time, duration, stop_reason);
+                    println!(
+                        "Time: {} Duration {} Stop reason {}",
+                        time, duration, stop_reason
+                    );
                 }
                 let batch_mapping = step.result.best_solution.solution.genome;
                 return WaivedBatches::from_waive_mapping(batch_mapping, batched_articles);
-
             }
             Err(err) => {
-                panic!("{}",err)
+                panic!("{}", err)
             }
         }
     }

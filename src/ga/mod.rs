@@ -1,2 +1,2 @@
-pub mod orders;
 pub mod batches;
+pub mod orders;

@@ -3,12 +3,12 @@ use std::collections::BTreeSet;
 
 use crate::model::*;
 
-use genevo::{operator::{prelude::*}, prelude::*, population::ValueEncodedGenomeBuilder};
+use genevo::{operator::prelude::*, population::ValueEncodedGenomeBuilder, prelude::*};
 
 type Fitness = usize;
 
 /// A set of batches
-/// 
+///
 /// Acts as genotype / individual
 #[derive(Clone, Debug)]
 pub struct BatchedArticles<'a> {
@@ -31,25 +31,29 @@ impl<'a> PartialOrd for BatchedArticles<'a> {
 impl<'a> BatchedArticles<'a> {
     fn from_batch_mapping(batch_mapping: BatchMapping, model: &'a Model) -> BatchedArticles<'a> {
         let mut batches: Vec<Batch> = (0..model.max_batches_num())
-                .into_iter()
-                .enumerate()
-                .map(|(idx,_)| Batch::new(idx))
-                .collect();
+            .into_iter()
+            .enumerate()
+            .map(|(idx, _)| Batch::new(idx))
+            .collect();
 
-            model.get_ordered_articles()
-                .into_iter()
-                .enumerate()
-                .for_each(|(idx, article)| {
-                    let batch_id = batch_mapping[idx];
-                    batches[batch_id as usize].push(article)
-                });
+        model
+            .get_ordered_articles()
+            .into_iter()
+            .enumerate()
+            .for_each(|(idx, article)| {
+                let batch_id = batch_mapping[idx];
+                batches[batch_id as usize].push(article)
+            });
 
         batches = batches
-                .into_iter()
-                .filter(|batch| batch.num_articles() > 0)
-                .collect();
+            .into_iter()
+            .filter(|batch| batch.num_articles() > 0)
+            .collect();
 
-        BatchedArticles { batch_mapping, batches }
+        BatchedArticles {
+            batch_mapping,
+            batches,
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -61,17 +65,13 @@ impl<'a> BatchedArticles<'a> {
     }
 
     pub fn rest_cost(&self) -> usize {
-        let num_batches = self.batch_mapping
-            .iter()
-            .collect::<BTreeSet<_>>()
-            .len();
+        let num_batches = self.batch_mapping.iter().collect::<BTreeSet<_>>().len();
 
         num_batches * COST_PER_BATCH
     }
 
     pub fn tour_cost(&self) -> Option<usize> {
-        self
-            .to_batches()
+        self.to_batches()
             .iter()
             .map(Batch::fitness)
             .sum::<Option<usize>>()
@@ -86,12 +86,15 @@ impl<'a> Genotype for BatchedArticles<'a> {
 #[derive(Debug, Clone)]
 pub struct Batch<'a> {
     pub id: BatchId,
-    ordered_articles: Vec<&'a OrderedArticle>
+    ordered_articles: Vec<&'a OrderedArticle>,
 }
 
 impl<'a> Batch<'a> {
     fn new(id: BatchId) -> Batch<'a> {
-        Batch { id, ordered_articles: Vec::new() }
+        Batch {
+            id,
+            ordered_articles: Vec::new(),
+        }
     }
 
     fn push(&mut self, article: &'a OrderedArticle) {
@@ -104,8 +107,9 @@ impl<'a> Batch<'a> {
         } else {
             Some(
                 self.num_warehouses() * COST_PER_WAREHOUSE
-              + self.num_aisles() * COST_PER_AISLE
-              + COST_PER_BATCH)
+                    + self.num_aisles() * COST_PER_AISLE
+                    + COST_PER_BATCH,
+            )
         }
     }
 
@@ -153,19 +157,18 @@ impl<'a> Batch<'a> {
 type BatchId = usize;
 
 /// A 'mapping' from articles (by index) to batches (by id / index)
-/// 
+///
 /// Acts as DNA for the genotype `BatchedArticles`
 type BatchMapping = Vec<BatchId>;
 
-#[derive(Debug,Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct FitnessCalc<'a> {
-    model: &'a Model
+    model: &'a Model,
 }
 
 impl<'a> FitnessCalc<'a> {
     fn best_batch_fitness_approx(&self) -> usize {
-          self.model.num_warehouses_of_orders() * 10
-        + self.model.num_aisles_of_orders() * 5
+        self.model.num_warehouses_of_orders() * 10 + self.model.num_aisles_of_orders() * 5
     }
 }
 
@@ -174,11 +177,12 @@ impl<'a> FitnessFunction<BatchMapping, Fitness> for FitnessCalc<'a> {
     // TODO: add penalty if articles of one order are in many batches
     fn fitness_of(&self, batch_mapping: &BatchMapping) -> Fitness {
         let batch_mapping = batch_mapping.clone();
-        let fitness = BatchedArticles::from_batch_mapping(batch_mapping, self.model).to_batches()
+        let fitness = BatchedArticles::from_batch_mapping(batch_mapping, self.model)
+            .to_batches()
             .iter()
             .map(Batch::fitness)
             .sum::<Option<usize>>();
-        
+
         if let Some(fitness) = fitness {
             let f = (self.best_batch_fitness_approx() as f32) * 100f32 / (fitness as f32);
             f as Fitness
@@ -206,20 +210,24 @@ struct GenomeConfig {
     max_value: usize,
 }
 
-pub fn find_best_batches(model: &Model, num_individuals: usize, num_generations: usize) -> BatchedArticles {
-    
+pub fn find_best_batches(
+    model: &Model,
+    num_individuals: usize,
+    num_generations: usize,
+) -> BatchedArticles {
     let fitness_calc = FitnessCalc { model };
 
     let genome_config = GenomeConfig {
         length: model.get_ordered_articles().len(),
         min_value: 0,
-        max_value: model.max_batches_num() - 1
+        max_value: model.max_batches_num() - 1,
     };
 
     if cfg!(feature = "info") {
         println!(
             "Best possible tour cost: {}",
-            fitness_calc.best_batch_fitness_approx());
+            fitness_calc.best_batch_fitness_approx()
+        );
     }
 
     let initial_population: Population<_> = build_population()
@@ -234,28 +242,22 @@ pub fn find_best_batches(model: &Model, num_individuals: usize, num_generations:
     let mut batch_sim = simulate(
         genetic_algorithm()
             .with_evaluation(fitness_calc)
-            .with_selection(RouletteWheelSelector::new(
-                0.7,
-                2
-            ))
+            .with_selection(RouletteWheelSelector::new(0.7, 2))
             .with_crossover(UniformCrossBreeder::new())
             .with_mutation(RandomValueMutator::new(
                 0.05,
                 genome_config.min_value,
-                genome_config.max_value))
-            .with_reinsertion(ElitistReinserter::new(
-                fitness_calc,
-                true,
-                0.7))
-            .with_initial_population(initial_population)
-            .build()
-    )
-        .until(
-            Or::new(
-                GenerationLimit::new(num_generations as u64),
-                FitnessLimit::new(100)
+                genome_config.max_value,
             ))
-        .build();
+            .with_reinsertion(ElitistReinserter::new(fitness_calc, true, 0.7))
+            .with_initial_population(initial_population)
+            .build(),
+    )
+    .until(Or::new(
+        GenerationLimit::new(num_generations as u64),
+        FitnessLimit::new(100),
+    ))
+    .build();
 
     loop {
         match batch_sim.step() {
@@ -273,17 +275,20 @@ pub fn find_best_batches(model: &Model, num_individuals: usize, num_generations:
                     println!(
                         "Generation {} fitness {}",
                         step.result.best_solution.generation,
-                        step.result.best_solution.solution.fitness);
+                        step.result.best_solution.solution.fitness
+                    );
                 }
                 if cfg!(feature = "info") {
-                    println!("Time: {} Duration {} Stop reason {}", time, duration, stop_reason);
+                    println!(
+                        "Time: {} Duration {} Stop reason {}",
+                        time, duration, stop_reason
+                    );
                 }
                 let batch_mapping = step.result.best_solution.solution.genome;
                 return BatchedArticles::from_batch_mapping(batch_mapping, model);
-
             }
             Err(err) => {
-                panic!("{}",err)
+                panic!("{}", err)
             }
         }
     }

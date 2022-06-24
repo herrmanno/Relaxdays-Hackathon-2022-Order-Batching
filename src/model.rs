@@ -1,4 +1,7 @@
-use std::{collections::{BTreeMap, BTreeSet}, iter::repeat};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    iter::repeat,
+};
 
 use crate::input::Input;
 
@@ -14,7 +17,7 @@ pub type ID = u16;
 #[derive(Debug)]
 pub struct Model {
     // articles: Articles,
-    orders: Orders
+    orders: Orders,
 }
 
 impl Model {
@@ -34,18 +37,19 @@ impl Model {
     }
 
     pub fn max_items_per_batch(&self) -> usize {
-        let mut volumes = self.get_ordered_articles()
+        let mut volumes = self
+            .get_ordered_articles()
             .iter()
             .map(|article| article.volume as u16)
             .collect::<Vec<u16>>();
-        
+
         volumes.sort();
 
         let mut sum = 0;
         let mut n = 0;
         for v in volumes {
             if sum + v > MAX_WEIGHT_PER_BATCH {
-                break
+                break;
             } else {
                 sum += v;
                 n += 1;
@@ -70,9 +74,7 @@ impl Model {
     pub fn num_aisles_of_orders(&self) -> usize {
         self.get_ordered_articles()
             .iter()
-            .map(|article| {
-                (article.location.warehouse, article.location.aisle)
-            })
+            .map(|article| (article.location.warehouse, article.location.aisle))
             .collect::<BTreeSet<_>>()
             .len()
     }
@@ -80,41 +82,44 @@ impl Model {
 
 #[derive(Debug)]
 pub struct Articles {
-    article_map: BTreeMap<ID, Article>
+    article_map: BTreeMap<ID, Article>,
 }
 
 impl Articles {
     fn from_input(input: &Input) -> Articles {
         let mut article_map = BTreeMap::new();
 
-        let ordered_article_ids = input.orders
+        let ordered_article_ids = input
+            .orders
             .iter()
             .flat_map(|order| order.article_ids.iter())
             .map(|id| *id)
             .collect::<BTreeSet<_>>();
-        
-        let ordered_articles = ordered_article_ids
-            .iter()
-            .map(|id| {
-                let volume = input.articles
-                    .iter()
-                    .find(|article| article.article_id == *id)
-                    .map(|article| article.volume as u8)
-                    .expect(format!("Article {} ordered but not listed as article", id).as_str());
-                
-                let location = input.article_locations
-                    .iter()
-                    .find(|article_location| article_location.article_id == *id)
-                    .map(|article_location| {
-                        ArticleLocation {
-                            warehouse: article_location.warehouse,
-                            aisle: article_location.aisle
-                        }
-                    })
-                    .expect(format!("Article {} ordered but has no location", id).as_str());
 
-                Article { id: *id, volume, location }
-            });
+        let ordered_articles = ordered_article_ids.iter().map(|id| {
+            let volume = input
+                .articles
+                .iter()
+                .find(|article| article.article_id == *id)
+                .map(|article| article.volume as u8)
+                .expect(format!("Article {} ordered but not listed as article", id).as_str());
+
+            let location = input
+                .article_locations
+                .iter()
+                .find(|article_location| article_location.article_id == *id)
+                .map(|article_location| ArticleLocation {
+                    warehouse: article_location.warehouse,
+                    aisle: article_location.aisle,
+                })
+                .expect(format!("Article {} ordered but has no location", id).as_str());
+
+            Article {
+                id: *id,
+                volume,
+                location,
+            }
+        });
 
         ordered_articles.for_each(|article| {
             article_map.insert(article.id, article);
@@ -132,12 +137,11 @@ impl Articles {
     // }
 }
 
-
 #[derive(Debug, Clone, Copy)]
 pub struct Article {
     id: u16,
     volume: u8,
-    location: ArticleLocation
+    location: ArticleLocation,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -152,7 +156,7 @@ pub struct OrderedArticle {
     pub order_id: ID,
     pub id: ID,
     pub volume: u8,
-    pub location: ArticleLocation
+    pub location: ArticleLocation,
 }
 
 impl OrderedArticle {
@@ -161,23 +165,25 @@ impl OrderedArticle {
             order_id,
             id: article.id,
             volume: article.volume,
-            location: article.location
+            location: article.location,
         }
     }
 }
 
 #[derive(Debug)]
 pub struct Orders {
-    orders: Vec<Order>
+    orders: Vec<Order>,
 }
 
 impl Orders {
     fn from_input(input: &Input, articles: &Articles) -> Orders {
-        let ordered_articles = input.orders
+        let ordered_articles = input
+            .orders
             .iter()
             .map(|order| {
-                repeat(order.order_id).zip(order.article_ids.iter())
-                    .map(|(order_id,article_id)| {
+                repeat(order.order_id)
+                    .zip(order.article_ids.iter())
+                    .map(|(order_id, article_id)| {
                         let article = articles.get_article(*article_id);
                         OrderedArticle::new(order_id, *article)
                     })
@@ -186,21 +192,19 @@ impl Orders {
             .map(Order::new)
             .collect::<Vec<_>>();
 
-        Orders { orders: ordered_articles }
+        Orders {
+            orders: ordered_articles,
+        }
     }
 
     fn ordered_articles(&self) -> Vec<&OrderedArticle> {
-        self.orders
-            .iter()
-            .flat_map(|o| o.articles.iter())
-            .collect()
+        self.orders.iter().flat_map(|o| o.articles.iter()).collect()
     }
-
 }
 
 #[derive(Debug)]
 pub struct Order {
-    articles: Vec<OrderedArticle>
+    articles: Vec<OrderedArticle>,
 }
 
 impl Order {

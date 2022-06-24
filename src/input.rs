@@ -1,18 +1,18 @@
-use serde::{Deserialize};
+use anyhow::{Context, Result};
+use serde::Deserialize;
 use serde_json as json;
-use anyhow::{Result, Context};
 
-#[derive(Deserialize,Debug)]
+#[derive(Deserialize, Debug)]
 pub struct Input {
     #[serde(rename = "ArticleLocations")]
     pub article_locations: Vec<ArticleLocation>,
     #[serde(rename = "Orders")]
     pub orders: Vec<Order>,
     #[serde(rename = "Articles")]
-    pub articles: Vec<Article>
+    pub articles: Vec<Article>,
 }
 
-#[derive(Deserialize,Debug)]
+#[derive(Deserialize, Debug)]
 pub struct ArticleLocation {
     #[serde(rename = "Warehouse")]
     pub warehouse: u16,
@@ -24,7 +24,7 @@ pub struct ArticleLocation {
     pub article_id: u16,
 }
 
-#[derive(Deserialize,Debug)]
+#[derive(Deserialize, Debug)]
 pub struct Order {
     #[serde(rename = "OrderId")]
     pub order_id: u16,
@@ -32,7 +32,7 @@ pub struct Order {
     pub article_ids: Vec<u16>,
 }
 
-#[derive(Deserialize,Debug)]
+#[derive(Deserialize, Debug)]
 pub struct Article {
     #[serde(rename = "ArticleId")]
     pub article_id: u16,
@@ -40,9 +40,7 @@ pub struct Article {
     pub volume: u16,
 }
 
-
 pub fn load_input(file_path: &str) -> Result<Input> {
     let input_file = std::fs::File::open(file_path)?;
-    json::from_reader(input_file)
-        .context("cannot deserialize input")
+    json::from_reader(input_file).context("cannot deserialize input")
 }

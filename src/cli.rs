@@ -23,4 +23,4 @@ pub struct Cli {
 
     #[clap(long, short, action)]
     pub no_output: bool,
-} 
+}
