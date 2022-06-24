@@ -5,38 +5,38 @@ use std::{
 
 use crate::input::Input;
 
-pub const MAX_WEIGHT_PER_BATCH: u16 = 1000; //TODO: convert to usize?
-pub const MAX_ARTICLES_PER_WAIVE: usize = 250;
-pub const COST_PER_WAIVE: usize = 10;
-pub const COST_PER_BATCH: usize = 5;
-pub const COST_PER_WAREHOUSE: usize = 10;
-pub const COST_PER_AISLE: usize = 5;
+pub(crate) const MAX_WEIGHT_PER_BATCH: u16 = 1000; //TODO: convert to usize?
+pub(crate) const MAX_ARTICLES_PER_WAIVE: usize = 250;
+pub(crate) const COST_PER_WAIVE: usize = 10;
+pub(crate) const COST_PER_BATCH: usize = 5;
+pub(crate) const COST_PER_WAREHOUSE: usize = 10;
+pub(crate) const COST_PER_AISLE: usize = 5;
 
-pub type ID = u16;
+pub(crate) type ID = u16;
 
 #[derive(Debug)]
-pub struct Model {
+pub(crate) struct Model {
     // articles: Articles,
     orders: Orders,
 }
 
 impl Model {
-    pub fn from_input(input: &Input) -> Model {
+    pub(crate) fn from_input(input: &Input) -> Model {
         let articles = Articles::from_input(input);
         let orders = Orders::from_input(input, &articles);
         Model { orders }
     }
 
-    pub fn get_ordered_articles(&self) -> Vec<&OrderedArticle> {
+    pub(crate) fn get_ordered_articles(&self) -> Vec<&OrderedArticle> {
         self.orders.ordered_articles()
     }
 
-    pub fn max_batches_num(&self) -> usize {
+    pub(crate) fn max_batches_num(&self) -> usize {
         //TODO: cache result
         self.orders.ordered_articles().len()
     }
 
-    pub fn max_items_per_batch(&self) -> usize {
+    pub(crate) fn max_items_per_batch(&self) -> usize {
         let mut volumes = self
             .get_ordered_articles()
             .iter()
@@ -59,11 +59,11 @@ impl Model {
         n
     }
 
-    pub fn num_orders(&self) -> usize {
+    pub(crate) fn num_orders(&self) -> usize {
         self.orders.orders.len()
     }
 
-    pub fn num_warehouses_of_orders(&self) -> usize {
+    pub(crate) fn num_warehouses_of_orders(&self) -> usize {
         self.get_ordered_articles()
             .iter()
             .map(|article| article.location.warehouse)
@@ -71,7 +71,7 @@ impl Model {
             .len()
     }
 
-    pub fn num_aisles_of_orders(&self) -> usize {
+    pub(crate) fn num_aisles_of_orders(&self) -> usize {
         self.get_ordered_articles()
             .iter()
             .map(|article| (article.location.warehouse, article.location.aisle))
@@ -81,7 +81,7 @@ impl Model {
 }
 
 #[derive(Debug)]
-pub struct Articles {
+pub(crate) struct Articles {
     article_map: BTreeMap<ID, Article>,
 }
 
@@ -128,39 +128,39 @@ impl Articles {
         Articles { article_map }
     }
 
-    pub fn get_article(&self, id: ID) -> &Article {
+    pub(crate) fn get_article(&self, id: ID) -> &Article {
         self.article_map.get(&id).unwrap()
     }
 
-    // pub fn size(&self) -> usize {
+    // pub(crate) fn size(&self) -> usize {
     //     self.article_map.len()
     // }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Article {
+pub(crate) struct Article {
     id: u16,
     volume: u8,
     location: ArticleLocation,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct ArticleLocation {
-    pub warehouse: ID,
-    pub aisle: ID,
+pub(crate) struct ArticleLocation {
+    pub(crate) warehouse: ID,
+    pub(crate) aisle: ID,
     // position: u16,
 }
 
 #[derive(Debug)]
-pub struct OrderedArticle {
-    pub order_id: ID,
-    pub id: ID,
-    pub volume: u8,
-    pub location: ArticleLocation,
+pub(crate) struct OrderedArticle {
+    pub(crate) order_id: ID,
+    pub(crate) id: ID,
+    pub(crate) volume: u8,
+    pub(crate) location: ArticleLocation,
 }
 
 impl OrderedArticle {
-    pub fn new(order_id: ID, article: Article) -> OrderedArticle {
+    pub(crate) fn new(order_id: ID, article: Article) -> OrderedArticle {
         OrderedArticle {
             order_id,
             id: article.id,
@@ -171,7 +171,7 @@ impl OrderedArticle {
 }
 
 #[derive(Debug)]
-pub struct Orders {
+pub(crate) struct Orders {
     orders: Vec<Order>,
 }
 
@@ -203,7 +203,7 @@ impl Orders {
 }
 
 #[derive(Debug)]
-pub struct Order {
+pub(crate) struct Order {
     articles: Vec<OrderedArticle>,
 }
 

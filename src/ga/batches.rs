@@ -13,7 +13,7 @@ type Fitness = usize;
 ///
 /// Acts as genotype / individual
 #[derive(Clone, Debug)]
-pub struct WaivedBatches<'a> {
+pub(crate) struct WaivedBatches<'a> {
     waive_mapping: WaiveMapping,
     waives: Vec<Waive<'a>>,
 }
@@ -58,7 +58,7 @@ impl<'a> WaivedBatches<'a> {
         }
     }
 
-    pub fn to_waives(&self) -> &Vec<Waive<'a>> {
+    pub(crate) fn to_waives(&self) -> &Vec<Waive<'a>> {
         &self.waives
         // let mut waives: Vec<Waive<'a>> = (0..batched_articles.len())
         //     .into_iter()
@@ -82,11 +82,11 @@ impl<'a> WaivedBatches<'a> {
     }
 
     #[allow(dead_code)]
-    pub fn has_split_orders(&self) -> bool {
+    pub(crate) fn has_split_orders(&self) -> bool {
         self.get_split_orders().len() > 0
     }
 
-    pub fn get_split_orders(&self) -> BTreeSet<ID> {
+    pub(crate) fn get_split_orders(&self) -> BTreeSet<ID> {
         let order_ids_per_batch = self
             .to_waives()
             .iter()
@@ -111,7 +111,7 @@ impl<'a> WaivedBatches<'a> {
         split_order_ids
     }
 
-    pub fn rest_cost(&self) -> usize {
+    pub(crate) fn rest_cost(&self) -> usize {
         let num_waives = self.waive_mapping.iter().collect::<BTreeSet<_>>().len();
 
         num_waives * COST_PER_WAIVE
@@ -124,7 +124,7 @@ impl<'a> Genotype for WaivedBatches<'a> {
 
 /// A singe batch, containing (ordered) articles
 #[derive(Clone, Debug)]
-pub struct Waive<'a> {
+pub(crate) struct Waive<'a> {
     batches: Vec<Batch<'a>>,
 }
 
@@ -143,15 +143,15 @@ impl<'a> Waive<'a> {
         self.batches.len()
     }
 
-    pub fn batches(&self) -> &Vec<Batch<'a>> {
+    pub(crate) fn batches(&self) -> &Vec<Batch<'a>> {
         &self.batches
     }
 
-    pub fn num_articles(&self) -> usize {
+    pub(crate) fn num_articles(&self) -> usize {
         self.batches.iter().map(Batch::num_articles).sum::<usize>()
     }
 
-    pub fn order_ids_in_waive(&self) -> BTreeSet<ID> {
+    pub(crate) fn order_ids_in_waive(&self) -> BTreeSet<ID> {
         self.batches
             .iter()
             .flat_map(|batch| batch.order_ids_in_batch().into_iter())
@@ -245,7 +245,7 @@ struct GenomeConfig {
     max_value: usize,
 }
 
-pub fn find_best_waives<'a>(
+pub(crate) fn find_best_waives<'a>(
     model: &'a Model,
     batched_articles: &'a BatchedArticles,
     num_individuals: usize,

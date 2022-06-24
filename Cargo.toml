@@ -3,7 +3,7 @@ publish = false
 name = "order-batching"
 version = "0.1.0"
 authors = ["Oliver Herrmann"]
-description = "Solver for task 'Order Batching' from relaxdays hackathon 2022 (https://relaxdays-unternehmen.de/hackathon/)"
+description = "Solver for task 'Order Batching' from relaxdays hackathon 2022"
 edition = "2021"
 license = "GNU GPLv3"
 

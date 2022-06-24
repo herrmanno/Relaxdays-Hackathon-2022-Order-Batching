@@ -11,7 +11,7 @@ type Fitness = usize;
 ///
 /// Acts as genotype / individual
 #[derive(Clone, Debug)]
-pub struct BatchedArticles<'a> {
+pub(crate) struct BatchedArticles<'a> {
     batch_mapping: BatchMapping,
     batches: Vec<Batch<'a>>,
 }
@@ -56,21 +56,21 @@ impl<'a> BatchedArticles<'a> {
         }
     }
 
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.batch_mapping.len()
     }
 
-    pub fn to_batches(&self) -> &Vec<Batch<'a>> {
+    pub(crate) fn to_batches(&self) -> &Vec<Batch<'a>> {
         &self.batches
     }
 
-    pub fn rest_cost(&self) -> usize {
+    pub(crate) fn rest_cost(&self) -> usize {
         let num_batches = self.batch_mapping.iter().collect::<BTreeSet<_>>().len();
 
         num_batches * COST_PER_BATCH
     }
 
-    pub fn tour_cost(&self) -> Option<usize> {
+    pub(crate) fn tour_cost(&self) -> Option<usize> {
         self.to_batches()
             .iter()
             .map(Batch::fitness)
@@ -84,8 +84,8 @@ impl<'a> Genotype for BatchedArticles<'a> {
 
 /// A singe batch, containing (ordered) articles
 #[derive(Debug, Clone)]
-pub struct Batch<'a> {
-    pub id: BatchId,
+pub(crate) struct Batch<'a> {
+    pub(crate) id: BatchId,
     ordered_articles: Vec<&'a OrderedArticle>,
 }
 
@@ -101,7 +101,7 @@ impl<'a> Batch<'a> {
         self.ordered_articles.push(article);
     }
 
-    pub fn fitness(&self) -> Option<usize> {
+    pub(crate) fn fitness(&self) -> Option<usize> {
         if self.volume() > MAX_WEIGHT_PER_BATCH {
             None
         } else {
@@ -113,15 +113,15 @@ impl<'a> Batch<'a> {
         }
     }
 
-    pub fn ordered_articles(&self) -> &Vec<&OrderedArticle> {
+    pub(crate) fn ordered_articles(&self) -> &Vec<&OrderedArticle> {
         &self.ordered_articles
     }
 
-    pub fn num_articles(&self) -> usize {
+    pub(crate) fn num_articles(&self) -> usize {
         self.ordered_articles.len()
     }
 
-    pub fn volume(&self) -> u16 {
+    pub(crate) fn volume(&self) -> u16 {
         self.ordered_articles
             .iter()
             .map(|article| article.volume as u16)
@@ -145,7 +145,7 @@ impl<'a> Batch<'a> {
             .len()
     }
 
-    pub fn order_ids_in_batch(&self) -> BTreeSet<ID> {
+    pub(crate) fn order_ids_in_batch(&self) -> BTreeSet<ID> {
         self.ordered_articles
             .iter()
             .map(|article| article.order_id)
@@ -210,7 +210,7 @@ struct GenomeConfig {
     max_value: usize,
 }
 
-pub fn find_best_batches(
+pub(crate) fn find_best_batches(
     model: &Model,
     num_individuals: usize,
     num_generations: usize,

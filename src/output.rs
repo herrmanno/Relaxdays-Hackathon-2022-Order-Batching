@@ -5,7 +5,7 @@ use crate::ga::orders::*;
 use crate::model::*;
 
 #[derive(Serialize, Debug)]
-pub struct Output {
+pub(crate) struct Output {
     #[serde(rename = "Waves")]
     waves: Vec<Wave>,
     #[serde(rename = "Batches")]
@@ -13,7 +13,10 @@ pub struct Output {
 }
 
 impl Output {
-    pub fn new(batched_articles: &BatchedArticles, waived_batches: &WaivedBatches) -> Output {
+    pub(crate) fn new(
+        batched_articles: &BatchedArticles,
+        waived_batches: &WaivedBatches,
+    ) -> Output {
         let waves = waived_batches
             .to_waives()
             .iter()
@@ -65,7 +68,7 @@ impl Output {
 }
 
 #[derive(Serialize, Debug)]
-pub struct Wave {
+pub(crate) struct Wave {
     #[serde(rename = "WaveId")]
     wave_id: ID,
     #[serde(rename = "BatchIds")]
@@ -77,7 +80,7 @@ pub struct Wave {
 }
 
 #[derive(Serialize, Debug)]
-pub struct Batch {
+pub(crate) struct Batch {
     #[serde(rename = "BatchId")]
     batch_id: ID,
     #[serde(rename = "Items")]
@@ -87,7 +90,7 @@ pub struct Batch {
 }
 
 #[derive(Serialize, Debug)]
-pub struct Item {
+pub(crate) struct Item {
     #[serde(rename = "OrderId")]
     order_id: ID,
     #[serde(rename = "ArticleId")]
