@@ -81,6 +81,7 @@ impl<'a> WaivedBatches<'a> {
         //     .collect()
     }
 
+    #[allow(dead_code)]
     pub fn has_split_orders(&self) -> bool {
         self.get_split_orders().len() > 0
     }
@@ -248,7 +249,12 @@ struct GenomeConfig {
     max_value: usize,
 }
 
-pub fn find_best_waives<'a>(model: &'a Model, batched_articles: &'a BatchedArticles) -> WaivedBatches<'a> {
+pub fn find_best_waives<'a>(
+    model: &'a Model,
+    batched_articles: &'a BatchedArticles,
+    num_individuals: usize,
+    num_generations: usize
+) -> WaivedBatches<'a> {
     
     let fitness_calc = FitnessCalc { model, batched_articles };
 
@@ -264,7 +270,7 @@ pub fn find_best_waives<'a>(model: &'a Model, batched_articles: &'a BatchedArtic
             genome_config.min_value,
             genome_config.max_value
         ))
-        .of_size(50)
+        .of_size(num_individuals)
         .uniform_at_random();
 
     let mut batch_sim = simulate(
@@ -288,7 +294,7 @@ pub fn find_best_waives<'a>(model: &'a Model, batched_articles: &'a BatchedArtic
     )
         .until(
             Or::new(
-                GenerationLimit::new(200),
+                GenerationLimit::new(num_generations as u64),
                 FitnessLimit::new(100)
             ))
         .build();
@@ -297,20 +303,22 @@ pub fn find_best_waives<'a>(model: &'a Model, batched_articles: &'a BatchedArtic
         match batch_sim.step() {
             Ok(SimResult::Intermediate(step)) => {
                 if cfg!(feature = "verbose") {
-                    println!(
-                        "Generation {} fitness {}",
-                        step.result.best_solution.generation,
-                        step.result.best_solution.solution.fitness
-                    );
+                    if cfg!(feature = "verbose") {
+                        println!(
+                            "Generation {} fitness {}",
+                            step.result.best_solution.generation,
+                            step.result.best_solution.solution.fitness);
+                    }
                 }
             }
             Ok(SimResult::Final(step, time, duration, stop_reason)) => {
-                println!(
-                    "Generation {} fitness {}",
-                    step.result.best_solution.generation,
-                    step.result.best_solution.solution.fitness
-                );
-                if cfg!(feature = "verbose") {
+                if cfg!(feature = "info") {
+                    println!(
+                        "Generation {} fitness {}",
+                        step.result.best_solution.generation,
+                        step.result.best_solution.solution.fitness);
+                }
+                if cfg!(feature = "info") {
                     println!("Time: {} Duration {} Stop reason {}", time, duration, stop_reason);
                 }
                 let batch_mapping = step.result.best_solution.solution.genome;

@@ -1,75 +1,72 @@
-use std::collections::BTreeSet;
-
 use anyhow::Result;
 
-mod input;
-mod output;
-mod model;
+mod cli;
 mod ga;
+mod input;
+mod model;
+mod output;
 
+use clap::Parser;
+use ga::orders::*;
 use input::*;
 use model::*;
-use ga::orders::*;
 
-use crate::{ga::batches::find_best_waives, output::Output};
+use crate::{cli::Cli, ga::batches::find_best_waives, output::Output};
 
-fn main() -> Result<()>  {
-    let args = std::env::args().collect::<Vec<String>>();
-    let input_path = args.get(1).expect("no input file defined");
-    let input = load_input(input_path)?;
-    let output_path = args.get(2);
+fn main() -> Result<()> {
+    let args = Cli::parse();
+    let input = load_input(args.input_file.as_str())?;
 
     let model = Model::from_input(&input);
 
-    println!("Got {} different articles ordered", model.get_ordered_articles().len());
-    println!("Max number of batches {}", model.max_batches_num());
-    println!("Max number of articles in  batch {}", model.max_items_per_batch());
-    // println!("{:?}", model);
+    if cfg!(feature = "info") {
+        println!(
+            "Got {} different articles ordered",
+            model.get_ordered_articles().len()
+        );
+        println!("Max number of batches {}", model.max_batches_num());
+        println!(
+            "Max number of articles in  batch {}",
+            model.max_items_per_batch()
+        );
+    }
 
-    let batched_articles = find_best_batches(&model);
-    let tour_cost_batches = batched_articles.tour_cost()
+    let batched_articles = find_best_batches(
+        &model,
+        args.num_batch_individuals,
+        args.num_batch_generations,
+    );
+
+    let waived_batches = find_best_waives(
+        &model,
+        &batched_articles,
+        args.num_waive_individuals,
+        args.num_waive_generations,
+    );
+
+    let tour_cost_batches = batched_articles
+        .tour_cost()
         .expect(format!("Calculated invalid batches {:?}", batched_articles).as_str());
     let rest_cost_batches = batched_articles.rest_cost();
+    let rest_cost_waives = waived_batches.rest_cost();
+    let overall_cost = tour_cost_batches + rest_cost_batches + rest_cost_waives;
+
     println!("");
+    println!("[RESULTS]");
+    println!("#Waives {}", waived_batches.to_waives().len());
+    println!("#WBatches {}", batched_articles.to_batches().len());
     println!("Tour cost {:?}", tour_cost_batches);
     println!("Rest cost (batches) {:?}", rest_cost_batches);
-    println!("");
-
-    let batches = batched_articles.to_batches();
-    for (idx, batch) in batches.iter().enumerate() {
-        println!("Batch {}", idx);
-        println!("\t- #articles: {}", batch.num_articles());
-        println!("\t- orders: {:?}", batch.order_ids_in_batch());
-    }
-
-    let waived_batches = find_best_waives(&model, &batched_articles);
-    let waives = waived_batches.to_waives();
-
-    if waived_batches.has_split_orders() {
-        println!("Waived batches are invalid because orders are split between waives!")
-    } else {
-        for (idx, waive) in waives.iter().enumerate() {
-            let baches = waive.batches();
-            println!("Waive {}", idx);
-            println!("\t- #articles: {}", baches.iter().map(|b| b.num_articles()).sum::<usize>());
-            println!("\t- batches: {:?}", batches.iter().map(|b| b.id).collect::<BTreeSet<_>>());
-        }
-    }
-
-    let rest_cost_waives = waived_batches.rest_cost();
     println!("Rest cost (waives) {:?}", rest_cost_waives);
-
-    let overall_cost =
-        tour_cost_batches + rest_cost_batches + rest_cost_waives;
     println!("");
     println!("Overall cost {}", overall_cost);
 
     let output = Output::new(&batched_articles, &waived_batches);
-    if let Some(output_path) = output_path {
-        let out_file = std::fs::File::create(output_path)
+    if let Some(output_path) = args.output_file {
+        let out_file = std::fs::File::create(&output_path)
             .expect(format!("Cannot open out file at {}", output_path).as_str());
         serde_json::to_writer_pretty(out_file, &output)?;
-    } else {
+    } else if !args.no_output {
         serde_json::to_writer_pretty(std::io::stdout(), &output)?;
     }
 

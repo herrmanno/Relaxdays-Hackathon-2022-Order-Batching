@@ -206,7 +206,7 @@ struct GenomeConfig {
     max_value: usize,
 }
 
-pub fn find_best_batches(model: &Model) -> BatchedArticles {
+pub fn find_best_batches(model: &Model, num_individuals: usize, num_generations: usize) -> BatchedArticles {
     
     let fitness_calc = FitnessCalc { model };
 
@@ -216,9 +216,11 @@ pub fn find_best_batches(model: &Model) -> BatchedArticles {
         max_value: model.max_batches_num() - 1
     };
 
-    println!(
-        "Best possible tour cost: {}",
-        fitness_calc.best_batch_fitness_approx());
+    if cfg!(feature = "info") {
+        println!(
+            "Best possible tour cost: {}",
+            fitness_calc.best_batch_fitness_approx());
+    }
 
     let initial_population: Population<_> = build_population()
         .with_genome_builder(ValueEncodedGenomeBuilder::new(
@@ -226,7 +228,7 @@ pub fn find_best_batches(model: &Model) -> BatchedArticles {
             genome_config.min_value,
             genome_config.max_value,
         ))
-        .of_size(50)
+        .of_size(num_individuals)
         .uniform_at_random();
 
     let mut batch_sim = simulate(
@@ -243,14 +245,14 @@ pub fn find_best_batches(model: &Model) -> BatchedArticles {
                 genome_config.max_value))
             .with_reinsertion(ElitistReinserter::new(
                 fitness_calc,
-            true,
-        0.7))
+                true,
+                0.7))
             .with_initial_population(initial_population)
             .build()
     )
         .until(
             Or::new(
-                GenerationLimit::new(200),
+                GenerationLimit::new(num_generations as u64),
                 FitnessLimit::new(100)
             ))
         .build();
@@ -267,12 +269,13 @@ pub fn find_best_batches(model: &Model) -> BatchedArticles {
                 }
             }
             Ok(SimResult::Final(step, time, duration, stop_reason)) => {
-                println!(
-                    "Generation {} fitness {}",
-                    step.result.best_solution.generation,
-                    step.result.best_solution.solution.fitness
-                );
-                if cfg!(feature = "verbose") {
+                if cfg!(feature = "info") {
+                    println!(
+                        "Generation {} fitness {}",
+                        step.result.best_solution.generation,
+                        step.result.best_solution.solution.fitness);
+                }
+                if cfg!(feature = "info") {
                     println!("Time: {} Duration {} Stop reason {}", time, duration, stop_reason);
                 }
                 let batch_mapping = step.result.best_solution.solution.genome;

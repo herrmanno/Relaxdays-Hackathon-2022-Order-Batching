@@ -1,7 +1,11 @@
 [package]
+publish = false
 name = "order-batching"
 version = "0.1.0"
+authors = ["Oliver Herrmann"]
+description = "Solver for task 'Order Batching' from relaxdays hackathon 2022 (https://relaxdays-unternehmen.de/hackathon/)"
 edition = "2021"
+license = "GNU GPLv3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,7 +14,9 @@ serde = { version="1.0.137", features=["derive"] }
 serde_json = "1.0.81"
 anyhow = "1.0.58"
 genevo = "0.7.1"
+clap = { version = "3.2.6", features = ["derive"] }
 
 [features]
-default = ["verbose"]
-verbose = []
+default = []
+verbose = ["info"]
+info = []
