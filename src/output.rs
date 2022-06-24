@@ -14,12 +14,11 @@ pub struct Output {
 
 impl Output {
     pub fn new(
-        model: &Model,
         batched_articles: &BatchedArticles,
         waived_batches: &WaivedBatches
     ) -> Output {
         let waves = waived_batches
-            .to_waives(model, batched_articles)
+            .to_waives()
             .iter()
             .enumerate()
             .map(|(idx,waive)| {
@@ -36,7 +35,7 @@ impl Output {
             .collect();
 
         let batches = batched_articles
-            .to_batches(model)
+            .to_batches()
             .iter()
             .map(|batch| {
                 let batch_id = batch.id as ID;

@@ -7,43 +7,57 @@ use genevo::{operator::{prelude::*}, prelude::*, population::ValueEncodedGenomeB
 
 type Fitness = usize;
 
-/// A mapping from ordered articles to baches
+/// A set of batches
 /// 
 /// Acts as genotype / individual
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
-pub struct BatchedArticles {
-    batch_mapping: BatchMapping
+#[derive(Clone, Debug)]
+pub struct BatchedArticles<'a> {
+    batch_mapping: BatchMapping,
+    batches: Vec<Batch<'a>>,
 }
 
-impl BatchedArticles {
-    fn from_batch_mapping(batch_mapping: BatchMapping) -> BatchedArticles {
-        BatchedArticles { batch_mapping }
+impl<'a> PartialEq for BatchedArticles<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.batch_mapping == other.batch_mapping
+    }
+}
+
+impl<'a> PartialOrd for BatchedArticles<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.batch_mapping.partial_cmp(&other.batch_mapping)
+    }
+}
+
+impl<'a> BatchedArticles<'a> {
+    fn from_batch_mapping(batch_mapping: BatchMapping, model: &'a Model) -> BatchedArticles<'a> {
+        let mut batches: Vec<Batch> = (0..model.max_batches_num())
+                .into_iter()
+                .enumerate()
+                .map(|(idx,_)| Batch::new(idx))
+                .collect();
+
+            model.get_ordered_articles()
+                .into_iter()
+                .enumerate()
+                .for_each(|(idx, article)| {
+                    let batch_id = batch_mapping[idx];
+                    batches[batch_id as usize].push(article)
+                });
+
+        batches = batches
+                .into_iter()
+                .filter(|batch| batch.num_articles() > 0)
+                .collect();
+
+        BatchedArticles { batch_mapping, batches }
     }
 
     pub fn len(&self) -> usize {
         self.batch_mapping.len()
     }
 
-    // TODO: BatchedArticles should own / hold a vec of Batches already
-    pub fn to_batches<'a>(&self, model: &'a Model) -> Vec<Batch<'a>> {
-        let mut batches: Vec<Batch> = (0..model.max_batches_num())
-            .into_iter()
-            .enumerate()
-            .map(|(idx,_)| Batch::new(idx))
-            .collect();
-
-        model.get_ordered_articles()
-            .iter()
-            .enumerate()
-            .for_each(|(idx, article)| {
-                let batch_id = self.batch_mapping[idx];
-                batches[batch_id as usize].push(article)
-            });
-
-        batches
-            .into_iter()
-            .filter(|batch| batch.num_articles() > 0)
-            .collect()
+    pub fn to_batches(&self) -> &Vec<Batch<'a>> {
+        &self.batches
     }
 
     pub fn rest_cost(&self) -> usize {
@@ -55,16 +69,16 @@ impl BatchedArticles {
         num_batches * COST_PER_BATCH
     }
 
-    pub fn tour_cost(&self, model: &Model) -> Option<usize> {
+    pub fn tour_cost(&self) -> Option<usize> {
         self
-            .to_batches(&model)
+            .to_batches()
             .iter()
             .map(Batch::fitness)
             .sum::<Option<usize>>()
     }
 }
 
-impl Genotype for BatchedArticles {
+impl<'a> Genotype for BatchedArticles<'a> {
     type Dna = BatchId;
 }
 
@@ -160,10 +174,7 @@ impl<'a> FitnessFunction<BatchMapping, Fitness> for FitnessCalc<'a> {
     // TODO: add penalty if articles of one order are in many batches
     fn fitness_of(&self, batch_mapping: &BatchMapping) -> Fitness {
         let batch_mapping = batch_mapping.clone();
-        let batches =
-            BatchedArticles::from_batch_mapping(batch_mapping)
-                .to_batches(self.model);
-        let fitness = batches
+        let fitness = BatchedArticles::from_batch_mapping(batch_mapping, self.model).to_batches()
             .iter()
             .map(Batch::fitness)
             .sum::<Option<usize>>();
@@ -265,7 +276,7 @@ pub fn find_best_batches(model: &Model) -> BatchedArticles {
                     println!("Time: {} Duration {} Stop reason {}", time, duration, stop_reason);
                 }
                 let batch_mapping = step.result.best_solution.solution.genome;
-                return BatchedArticles::from_batch_mapping(batch_mapping);
+                return BatchedArticles::from_batch_mapping(batch_mapping, model);
 
             }
             Err(err) => {

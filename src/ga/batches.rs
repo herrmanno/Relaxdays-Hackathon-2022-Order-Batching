@@ -12,44 +12,81 @@ type Fitness = usize;
 /// A mapping from batches to waives
 /// 
 /// Acts as genotype / individual
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
-pub struct WaivedBatches {
-    waive_mapping: WaiveMapping
+#[derive(Clone, Debug)]
+pub struct WaivedBatches<'a> {
+    waive_mapping: WaiveMapping,
+    waives: Vec<Waive<'a>>,
 }
 
-impl WaivedBatches {
-    fn from_waive_mapping(waive_mapping: WaiveMapping) -> WaivedBatches {
-        WaivedBatches { waive_mapping: waive_mapping }
+impl<'a> PartialEq for WaivedBatches<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.waive_mapping == other.waive_mapping
     }
+}
 
-    pub fn to_waives<'a>(&self, model: &'a Model, batched_articles: &'a BatchedArticles) -> Vec<Waive<'a>> {
+impl<'a> PartialOrd for WaivedBatches<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.waive_mapping.partial_cmp(&other.waive_mapping)
+    }
+}
+
+impl<'a> WaivedBatches<'a> {
+    fn from_waive_mapping(
+        waive_mapping: WaiveMapping,
+        batched_articles: &'a BatchedArticles
+    ) -> WaivedBatches<'a> {
         let mut waives: Vec<Waive<'a>> = (0..batched_articles.len())
             .into_iter()
             .map(|_| Waive::new())
             .collect();
 
-        let batches: Vec<Batch<'a>> = batched_articles.to_batches(model);
+        let batches = batched_articles.to_batches();
 
         batches
             .iter()
             .enumerate()
             .for_each(|(idx, batch)| {
-                let waive_id = self.waive_mapping[idx];
+                let waive_id = waive_mapping[idx];
                 waives[waive_id as usize].push(batch.to_owned())
             });
 
-        waives
+        waives = waives
             .into_iter()
             .filter(|waive| waive.num_batches() > 0)
-            .collect()
+            .collect();
+
+        WaivedBatches { waive_mapping, waives }
     }
 
-    pub fn has_split_orders(&self, model: &Model, batched_articles: &BatchedArticles) -> bool {
-        self.get_split_orders(model, batched_articles).len() > 0
+    pub fn to_waives(&self) -> &Vec<Waive<'a>> {
+        &self.waives
+        // let mut waives: Vec<Waive<'a>> = (0..batched_articles.len())
+        //     .into_iter()
+        //     .map(|_| Waive::new())
+        //     .collect();
+
+        // let batches = batched_articles.to_batches();
+
+        // batches
+        //     .iter()
+        //     .enumerate()
+        //     .for_each(|(idx, batch)| {
+        //         let waive_id = self.waive_mapping[idx];
+        //         waives[waive_id as usize].push(batch.to_owned())
+        //     });
+
+        // waives
+        //     .into_iter()
+        //     .filter(|waive| waive.num_batches() > 0)
+        //     .collect()
     }
 
-    pub fn get_split_orders(&self, model: &Model, batched_articles: &BatchedArticles) -> BTreeSet<ID> {
-        let order_ids_per_batch = self.to_waives(model, batched_articles)
+    pub fn has_split_orders(&self) -> bool {
+        self.get_split_orders().len() > 0
+    }
+
+    pub fn get_split_orders(&self) -> BTreeSet<ID> {
+        let order_ids_per_batch = self.to_waives()
             .iter()
             .map(Waive::order_ids_in_waive)
             .collect::<Vec<_>>();
@@ -82,12 +119,12 @@ impl WaivedBatches {
     }
 }
 
-impl Genotype for WaivedBatches {
+impl<'a> Genotype for WaivedBatches<'a> {
     type Dna = WaiveId;
 }
 
 /// A singe batch, containing (ordered) articles
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Waive<'a> {
     batches: Vec<Batch<'a>>
 }
@@ -136,13 +173,13 @@ type WaiveMapping = Vec<WaiveId>;
 #[derive(Debug,Clone, Copy)]
 struct FitnessCalc<'a> {
     model: &'a Model,
-    batched_articles: &'a BatchedArticles
+    batched_articles: &'a BatchedArticles<'a>
 }
 
 impl<'a> FitnessCalc<'a> {
     #[allow(dead_code)] // TODO: remove if not used anymore
-    fn average_num_of_waives(&self, model: &Model) -> f32 {
-        let batches = self.batched_articles.to_batches(model);
+    fn average_num_of_waives(&self) -> f32 {
+        let batches = self.batched_articles.to_batches();
         let average_articles_per_batch = batches
             .iter()
             .map(|batch| batch.num_articles())
@@ -157,8 +194,9 @@ impl<'a> FitnessCalc<'a> {
 
 impl<'a> FitnessFunction<WaiveMapping, Fitness> for FitnessCalc<'a> {
     fn fitness_of(&self, waive_mapping: &WaiveMapping) -> Fitness {
-        let waived_batches = WaivedBatches::from_waive_mapping(waive_mapping.to_owned());
-        let waives = waived_batches.to_waives(self.model, self.batched_articles);
+        let waived_batches =
+            WaivedBatches::from_waive_mapping(waive_mapping.to_owned(), self.batched_articles);
+        let waives = waived_batches.to_waives();
         
         let has_invalid_waive = waives
             .iter()
@@ -175,7 +213,7 @@ impl<'a> FitnessFunction<WaiveMapping, Fitness> for FitnessCalc<'a> {
             (relative_fitness * 100f32) as Fitness
         };
 
-        let num_split_orders = waived_batches.get_split_orders(self.model, self.batched_articles).len();
+        let num_split_orders = waived_batches.get_split_orders().len();
 
         let max_num_split_orders = self.model.num_orders();
 
@@ -210,14 +248,14 @@ struct GenomeConfig {
     max_value: usize,
 }
 
-pub fn find_best_waives(model: &Model, batched_articles: &BatchedArticles) -> WaivedBatches {
+pub fn find_best_waives<'a>(model: &'a Model, batched_articles: &'a BatchedArticles) -> WaivedBatches<'a> {
     
     let fitness_calc = FitnessCalc { model, batched_articles };
 
     let genome_config = GenomeConfig {
-        length: batched_articles.to_batches(model).len(),
+        length: batched_articles.to_batches().len(),
         min_value: 0,
-        max_value: batched_articles.to_batches(model).len() - 1
+        max_value: batched_articles.to_batches().len() - 1
     };
 
     let initial_population: Population<_> = build_population()
@@ -276,7 +314,7 @@ pub fn find_best_waives(model: &Model, batched_articles: &BatchedArticles) -> Wa
                     println!("Time: {} Duration {} Stop reason {}", time, duration, stop_reason);
                 }
                 let batch_mapping = step.result.best_solution.solution.genome;
-                return WaivedBatches::from_waive_mapping(batch_mapping);
+                return WaivedBatches::from_waive_mapping(batch_mapping, batched_articles);
 
             }
             Err(err) => {
