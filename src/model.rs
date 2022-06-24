@@ -2,7 +2,12 @@ use std::{collections::{BTreeMap, BTreeSet}, iter::repeat};
 
 use crate::input::Input;
 
-pub const MAX_WEIGHT_PER_BATCH: u16 = 1000;
+pub const MAX_WEIGHT_PER_BATCH: u16 = 1000; //TODO: convert to usize?
+pub const MAX_ARTICLES_PER_WAIVE: usize = 250;
+pub const COST_PER_WAIVE: usize = 10;
+pub const COST_PER_BATCH: usize = 5;
+pub const COST_PER_WAREHOUSE: usize = 10;
+pub const COST_PER_AISLE: usize = 5;
 
 pub type ID = u16;
 
@@ -48,6 +53,28 @@ impl Model {
         }
 
         n
+    }
+
+    pub fn num_orders(&self) -> usize {
+        self.orders.orders.len()
+    }
+
+    pub fn num_warehouses_of_orders(&self) -> usize {
+        self.get_ordered_articles()
+            .iter()
+            .map(|article| article.location.warehouse)
+            .collect::<BTreeSet<_>>()
+            .len()
+    }
+
+    pub fn num_aisles_of_orders(&self) -> usize {
+        self.get_ordered_articles()
+            .iter()
+            .map(|article| {
+                (article.location.warehouse, article.location.aisle)
+            })
+            .collect::<BTreeSet<_>>()
+            .len()
     }
 }
 
